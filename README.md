@@ -124,6 +124,58 @@ func init() {
 
 See the `example.yaml` file for examples of using both built-in and custom functions.
 
+## Testing with Sample Database
+
+To test the tool with the provided example.yaml file, you can create the following sample database tables:
+
+```sql
+-- Create users table
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP,
+    role VARCHAR(50),
+    created_at TIMESTAMP,
+    status VARCHAR(20)
+);
+
+-- Create products table
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(50),
+    sku VARCHAR(100) UNIQUE,
+    description TEXT,
+    price DECIMAL(10, 2),
+    created_at TIMESTAMP
+);
+```
+
+You can execute these SQL statements in your PostgreSQL database before running the tool. Then use the following commands to test:
+
+```bash
+# Set your database connection string
+export DATABASE_URL="postgres://user:password@localhost:5432/yourdb"
+
+# Run in dry-run mode first to see what would be inserted
+dbload -file example.yaml -dry-run
+
+# Then run for real to insert the data
+dbload -file example.yaml
+```
+
+After running, you can verify the data was inserted correctly:
+
+```sql
+-- Check users table
+SELECT * FROM users;
+
+-- Check products table
+SELECT * FROM products;
+```
+
 ## License
 
 [License information]
