@@ -2,17 +2,13 @@
 package main
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"gopkg.in/yaml.v3"
 )
@@ -31,52 +27,6 @@ func loadYAML(path string) (map[string][]map[string]interface{}, error) {
 	return out, nil
 }
 
-func applyPipes(value string) (interface{}, error) {
-	parts := strings.Split(value, "|")
-	if len(parts) == 1 {
-		return value, nil
-	}
-
-	input := strings.TrimSpace(parts[0])
-	for _, fn := range parts[1:] {
-		fn = strings.TrimSpace(fn)
-		switch fn {
-		case "hash":
-			h := sha256.Sum256([]byte(input))
-			input = hex.EncodeToString(h[:])
-		case "now":
-			input = time.Now().UTC().Format(time.RFC3339)
-		case "uuid":
-			input = uuid.New().String()
-		default:
-			return nil, fmt.Errorf("unsupported function: %s", fn)
-		}
-	}
-
-	return input, nil
-}
-
-func applyFunctionCall(value string) (interface{}, bool, error) {
-	matches := fnCallPattern.FindStringSubmatch(value)
-	if len(matches) != 3 {
-		return value, false, nil
-	}
-	fn := matches[1]
-	arg := strings.Trim(matches[2], `"'`)
-
-	switch fn {
-	case "hash":
-		h := sha256.Sum256([]byte(arg))
-		return hex.EncodeToString(h[:]), true, nil
-	case "now":
-		return time.Now().UTC().Format(time.RFC3339), true, nil
-	case "uuid":
-		return uuid.New().String(), true, nil
-	default:
-		return nil, true, fmt.Errorf("unsupported function: %s", fn)
-	}
-}
-
 func insertTable(db *sql.DB, table string, rows []map[string]interface{}) error {
 	for _, row := range rows {
 		columns := []string{}
@@ -87,7 +37,7 @@ func insertTable(db *sql.DB, table string, rows []map[string]interface{}) error 
 			if valStr, ok := v.(string); ok {
 				// Try function call (must end with ())
 				if strings.HasSuffix(valStr, ")") {
-					result, isFunc, err := applyFunctionCall(valStr)
+					result, isFunc, err := value.applyFunctionCall(valStr)
 					if err != nil {
 						return fmt.Errorf("function call error in %s: %w", k, err)
 					}
@@ -96,7 +46,7 @@ func insertTable(db *sql.DB, table string, rows []map[string]interface{}) error 
 					}
 				} else if strings.Contains(valStr, "|") {
 					// Apply pipe functions if present
-					result, err := applyPipes(valStr)
+					result, err := value.applyPipes(valStr)
 					if err != nil {
 						return fmt.Errorf("pipe error in %s: %w", k, err)
 					}
