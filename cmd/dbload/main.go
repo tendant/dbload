@@ -6,14 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	_ "github.com/lib/pq"
 	"gopkg.in/yaml.v3"
 )
-
-var fnCallPattern = regexp.MustCompile(`^(\w+)\((.*?)\)$`)
 
 func loadYAML(path string) (map[string][]map[string]interface{}, error) {
 	data, err := os.ReadFile(path)
