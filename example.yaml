@@ -18,10 +18,10 @@ products:
   - id: 101
     name: "Laptop"
     # Using the custom upper function with a pipe and a literal value
-    category: 'electronics'|upper
+    category: "electronics|upper"
     # Using the built-in uuid function
     sku: "uuid"
     # Using a pipe to chain custom functions with a literal value
-    description: 'premium laptop'|upper
+    description: "premium laptop|upper"
     price: 999.99
     created_at: "now"

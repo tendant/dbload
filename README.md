@@ -25,7 +25,15 @@ export DATABASE_URL="postgres://user:password@localhost:5432/dbname"
 
 # Run the tool with your YAML file
 dbload -file seed.yaml
+
+# Dry run mode (prints SQL without executing)
+dbload -file seed.yaml -dry-run
 ```
+
+### Command Line Options
+
+- `-file`: Path to the YAML seed file (default: "seed.yaml")
+- `-dry-run`: Print SQL statements without executing them (doesn't require DATABASE_URL)
 
 ### YAML File Format
 
@@ -35,7 +43,7 @@ table_name:
     column2: value2
     column3: function_name arg1 arg2
     column4: 'literal value'
-    column5: 'value'|function_name
+    column5: value|function_name
 ```
 
 ## Value Functions
@@ -43,7 +51,9 @@ table_name:
 Values in the YAML file can use functions for dynamic value generation. There are two ways to use functions:
 
 1. **Direct function calls**: `function_name arg1 arg2`
-2. **Piped functions**: `'value'|function_name` (first part is quoted if it's a literal value)
+2. **Piped functions**: `value|function_name` (the system automatically handles quoting)
+
+Note: When using pipes, the first part is treated as a literal value if it's not a function call. The system automatically handles the quoting for you, so you don't need to add quotes in the YAML file.
 
 ### Built-in Functions
 
@@ -64,7 +74,7 @@ The example includes two custom functions:
   - Example: `future 30` (30 days from now)
   
 - `upper`: Converts text to uppercase
-  - Example: `upper hello` or `'hello'|upper`
+  - Example: `upper hello` or `hello|upper`
 
 ### Literal Values
 
