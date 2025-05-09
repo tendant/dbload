@@ -41,40 +41,40 @@ dbload -file seed.yaml -dry-run
 table_name:
   - column1: value1
     column2: value2
-    column3: function_name arg1 arg2
+    column3: function_name(arg1, arg2)
     column4: 'literal value'
-    column5: value|function_name
+    column5: value|function_name()
 ```
 
 ## Value Functions
 
 Values in the YAML file can use functions for dynamic value generation. There are two ways to use functions:
 
-1. **Direct function calls**: `function_name arg1 arg2`
-2. **Piped functions**: `value|function_name` (the system automatically handles quoting)
+1. **Direct function calls**: `function_name(arg1, arg2, ...)`
+2. **Piped functions**: `value|function_name()`
 
-Note: When using pipes, the first part is treated as a literal value if it's not a function call. The system automatically handles the quoting for you, so you don't need to add quotes in the YAML file.
+Functions are explicitly identified by parentheses, making it clear what is a function call and what is a literal value. Arguments are comma-separated within the parentheses.
 
 ### Built-in Functions
 
 - `hash`: Generates a SHA-256 hash of the input
-  - Example: `hash password123`
+  - Example: `hash(password123)`
   
 - `now`: Generates the current timestamp in RFC3339 format
-  - Example: `now`
+  - Example: `now()`
   
 - `uuid`: Generates a random UUID
-  - Example: `uuid`
+  - Example: `uuid()`
 
 ### Custom Functions
 
 The example includes two custom functions:
 
 - `future`: Generates a date in the future by adding days to the current date
-  - Example: `future 30` (30 days from now)
+  - Example: `future(30)` (30 days from now)
   
 - `upper`: Converts text to uppercase
-  - Example: `upper hello` or `hello|upper`
+  - Example: `upper(hello)` or `hello|upper()`
 
 ### Literal Values
 

@@ -19,7 +19,7 @@ func TestCustomFunctions(t *testing.T) {
 	defer UnregisterFunction("double")
 
 	// Test the custom function
-	result, err := Eval("double test")
+	result, err := Eval("double(test)")
 	if err != nil {
 		t.Errorf("Eval() error = %v", err)
 		return
@@ -30,7 +30,7 @@ func TestCustomFunctions(t *testing.T) {
 	}
 
 	// Test the custom function in a pipe
-	result, err = Eval(`"value"|double`)
+	result, err = Eval(`value|double()`)
 	if err != nil {
 		t.Errorf("Eval() error = %v", err)
 		return
@@ -42,7 +42,7 @@ func TestCustomFunctions(t *testing.T) {
 
 	// Test unregistering a function
 	UnregisterFunction("double")
-	_, err = Eval("double test")
+	_, err = Eval("double(test)")
 	if err == nil {
 		t.Errorf("Expected error after unregistering function, got nil")
 	}
@@ -57,8 +57,8 @@ func TestEval(t *testing.T) {
 	}{
 		// Basic literal values
 		{
-			name:    "Double quoted literal",
-			input:   `"test value"`,
+			name:    "Simple literal",
+			input:   "test value",
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
 				if result != "test value" {
@@ -67,12 +67,12 @@ func TestEval(t *testing.T) {
 			},
 		},
 		{
-			name:    "Single quoted literal",
-			input:   `'test value'`,
+			name:    "Quoted literal",
+			input:   `"test value"`,
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
-				if result != "test value" {
-					t.Errorf("Expected 'test value', got %v", result)
+				if result != `"test value"` {
+					t.Errorf("Expected '\"test value\"', got %v", result)
 				}
 			},
 		},
@@ -80,7 +80,18 @@ func TestEval(t *testing.T) {
 		// Single function calls
 		{
 			name:    "Hash function with argument",
-			input:   "hash test",
+			input:   "hash(test)",
+			wantErr: false,
+			validate: func(t *testing.T, result interface{}) {
+				expected := "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" // SHA-256 hash of "test"
+				if result != expected {
+					t.Errorf("Expected hash '%s', got '%v'", expected, result)
+				}
+			},
+		},
+		{
+			name:    "Hash function with quoted argument",
+			input:   `hash("test")`,
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
 				expected := "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" // SHA-256 hash of "test"
@@ -91,7 +102,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "UUID function without arguments",
-			input:   "uuid",
+			input:   "uuid()",
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
 				str, ok := result.(string)
@@ -109,7 +120,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Now function without arguments",
-			input:   "now",
+			input:   "now()",
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
 				str, ok := result.(string)
@@ -129,7 +140,7 @@ func TestEval(t *testing.T) {
 		// Piped operations
 		{
 			name:    "Literal to hash",
-			input:   `"value"|hash`,
+			input:   `value|hash()`,
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
 				expected := "cd42404d52ad55ccfa9aca4adc828aa5800ad9d385a0671fbcbf724118320619" // SHA-256 hash of "value"
@@ -140,7 +151,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Double hash",
-			input:   `hash test|hash`,
+			input:   `hash(test)|hash()`,
 			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
 				// First hash: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
@@ -153,16 +164,18 @@ func TestEval(t *testing.T) {
 
 		// Error cases
 		{
-			name:    "Empty function call",
+			name:    "Empty pipe",
 			input:   "|",
-			wantErr: true,
+			wantErr: false, // This is now just a literal "|"
 			validate: func(t *testing.T, result interface{}) {
-				// No validation needed for error case
+				if result != "" {
+					t.Errorf("Expected empty string, got %v", result)
+				}
 			},
 		},
 		{
 			name:    "Unsupported function",
-			input:   "invalid test",
+			input:   "invalid(test)",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -170,7 +183,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Hash with no arguments",
-			input:   "hash",
+			input:   "hash()",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -178,7 +191,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Hash with too many arguments",
-			input:   "hash arg1 arg2",
+			input:   "hash(arg1, arg2)",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -186,7 +199,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "UUID with arguments",
-			input:   "uuid arg",
+			input:   "uuid(arg)",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -194,7 +207,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Now with arguments",
-			input:   "now arg",
+			input:   "now(arg)",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -202,7 +215,7 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Hash to UUID pipe (UUID gets argument)",
-			input:   "hash test|uuid",
+			input:   "hash(test)|uuid()",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -210,26 +223,20 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:    "Literal to Now pipe (Now gets argument)",
-			input:   `"value"|now`,
+			input:   `value|now()`,
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
 			},
 		},
 		{
-			name:    "Unclosed quote",
-			input:   `"unclosed`,
-			wantErr: true,
+			name:    "Malformed function call",
+			input:   "hash(test",
+			wantErr: false, // This is now just a literal "hash(test"
 			validate: func(t *testing.T, result interface{}) {
-				// No validation needed for error case
-			},
-		},
-		{
-			name:    "Mismatched quotes",
-			input:   `"mismatched'`,
-			wantErr: true,
-			validate: func(t *testing.T, result interface{}) {
-				// No validation needed for error case
+				if result != "hash(test" {
+					t.Errorf("Expected 'hash(test', got %v", result)
+				}
 			},
 		},
 	}

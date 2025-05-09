@@ -69,32 +69,13 @@ func insertTable(db *sql.DB, table string, rows []map[string]interface{}, dryRun
 		for k, v := range row {
 			if valStr, ok := v.(string); ok {
 				// Check if this is a function call or a pipe expression
-				isFunctionCall := strings.HasPrefix(valStr, "hash ") ||
-					valStr == "now" ||
-					valStr == "uuid" ||
-					strings.HasPrefix(valStr, "future ") ||
-					strings.HasPrefix(valStr, "upper ")
-
-				// For pipes, we need to be careful about the format
+				isFunctionCall := strings.Contains(valStr, "(") && strings.Contains(valStr, ")")
 				hasPipe := strings.Contains(valStr, "|")
 
 				if isFunctionCall || hasPipe {
 					// For debugging
 					if dryRun {
 						fmt.Printf("Evaluating: %s\n", valStr)
-					}
-
-					// If this is a pipe expression, we need to handle the first part specially
-					// because YAML parsing strips quotes from values
-					if hasPipe && !isFunctionCall {
-						parts := strings.SplitN(valStr, "|", 2)
-						if len(parts) == 2 {
-							// Wrap the first part in quotes to make it a literal value
-							valStr = fmt.Sprintf("'%s'|%s", parts[0], parts[1])
-							if dryRun {
-								fmt.Printf("Modified to: %s\n", valStr)
-							}
-						}
 					}
 
 					result, err := value.Eval(valStr)

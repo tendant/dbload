@@ -72,12 +72,14 @@ func init() {
 	})
 }
 
+// FunctionCallPattern matches function calls with parentheses: function(arg1, arg2, ...)
+var functionCallPattern = regexp.MustCompile(`^(\w+)\((.*)\)$`)
+
 // Eval evaluates a string value according to the specified rules:
-// 1. Literal values are quoted using single or double quotes
-// 2. String can be separated as multiple parts using pipe '|'
-// 3. Each part can be a literal value (if quoted) or a function call (if not quoted)
-// 4. For function calls, the first token is the function name, and the rest are arguments
-// 5. If there is a part before a function call, the previous part's value will be the last argument of the next function call
+// 1. String can be separated as multiple parts using pipe '|'
+// 2. Each part can be a literal value or a function call
+// 3. Function calls must use the syntax: function(arg1, arg2, ...)
+// 4. If there is a part before a function call, the previous part's value will be the last argument of the next function call
 func Eval(value string) (interface{}, error) {
 	parts := strings.Split(value, "|")
 	var result interface{}
@@ -85,22 +87,35 @@ func Eval(value string) (interface{}, error) {
 	for i, part := range parts {
 		part = strings.TrimSpace(part)
 
-		// Check if this is a quoted literal value
-		matches := quotePattern.FindStringSubmatch(part)
-		if matches != nil && len(matches) == 4 && matches[1] == matches[3] {
-			// It's a quoted literal value
-			result = matches[2]
+		// Check if this is a function call
+		matches := functionCallPattern.FindStringSubmatch(part)
+		if matches == nil || len(matches) != 3 {
+			// It's a literal value
+			result = part
 			continue
 		}
 
 		// It's a function call
-		tokens := strings.Fields(part)
-		if len(tokens) == 0 {
-			return nil, fmt.Errorf("empty function call")
-		}
+		fn := matches[1]
+		argsStr := matches[2]
 
-		fn := tokens[0]
-		args := tokens[1:]
+		// Parse arguments - split by comma, but respect quotes
+		var args []string
+		if argsStr != "" {
+			// Simple argument parsing - split by comma and trim spaces
+			args = strings.Split(argsStr, ",")
+			for i, arg := range args {
+				args[i] = strings.TrimSpace(arg)
+
+				// Remove quotes if present
+				if len(args[i]) > 1 {
+					if (args[i][0] == '"' && args[i][len(args[i])-1] == '"') ||
+						(args[i][0] == '\'' && args[i][len(args[i])-1] == '\'') {
+						args[i] = args[i][1 : len(args[i])-1]
+					}
+				}
+			}
+		}
 
 		// If there was a previous result and this isn't the first part,
 		// add it as an argument
