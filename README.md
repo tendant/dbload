@@ -42,6 +42,8 @@ dbload -file seed.yaml -dry-run
 
 - `-file`: Path to the YAML seed file (default: "seed.yaml")
 - `-dry-run`: Print SQL statements without executing them (doesn't require DATABASE_URL)
+- `-order`: Comma-separated list of table names to specify insertion order (e.g., "users,products,orders")
+- `-respect-yaml-order`: Process tables in the order they appear in the YAML file (default: true)
 
 ### YAML File Format
 
@@ -125,6 +127,58 @@ func init() {
 ## Example
 
 See the `example.yaml` file for examples of using both built-in and custom functions.
+
+## Controlling Insertion Order
+
+When loading data into tables with foreign key relationships, the order of insertion is important. You need to ensure that referenced tables are populated before the tables that reference them. There are two ways to control the insertion order:
+
+### Using YAML File Order (Default)
+
+By default, tables are processed in the exact order they appear in the YAML file:
+
+```yaml
+# First table (processed first)
+users:
+  - id: 1
+    name: "John Doe"
+
+# Second table (processed second)
+products:
+  - id: 101
+    name: "Laptop"
+
+# Third table (processed last)
+inventory:
+  - product_id: 101
+    quantity: 50
+```
+
+This behavior is controlled by the `-respect-yaml-order` flag, which is set to `true` by default. This ensures that tables with dependencies are processed in the correct order, as long as you organize your YAML file accordingly.
+
+### Using the `-order` Flag (Override)
+
+If you need to override the YAML file order, you can use the `-order` flag to specify the exact order in which tables should be processed:
+
+```bash
+dbload -file example.yaml -order "users,products,inventory"
+```
+
+This ensures that:
+1. The `users` table is processed first
+2. The `products` table is processed second
+3. The `inventory` table is processed last
+
+Any tables not specified in the order will be processed after the specified tables. When the `-order` flag is used, it takes precedence over the YAML file order (effectively setting `-respect-yaml-order` to `false`).
+
+### Disabling YAML Order Respect
+
+If you want to process tables in an arbitrary order (not respecting the YAML file order), you can set the `-respect-yaml-order` flag to `false`:
+
+```bash
+dbload -file example.yaml -respect-yaml-order=false
+```
+
+In this case, tables will be processed in an arbitrary order determined by the Go map iteration, which is not guaranteed to be consistent.
 
 ## Referencing Data Between Tables
 

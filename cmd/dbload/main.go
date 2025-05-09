@@ -42,14 +42,36 @@ func registerCustomFunctions() {
 	})
 }
 
-func loadYAML(path string) (map[string][]map[string]interface{}, error) {
+// loadYAML loads data from a YAML file and returns both the data and the order of tables
+func loadYAML(path string) (map[string][]map[string]interface{}, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+	// First, unmarshal into a yaml.Node to preserve order
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return nil, nil, err
+	}
+
+	// Then unmarshal into our map for easier access
 	var out map[string][]map[string]interface{}
 	if err := yaml.Unmarshal(data, &out); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	// Extract the order of tables from the yaml.Node
+	var tableOrder []string
+	if len(root.Content) > 0 && root.Content[0].Kind == yaml.MappingNode {
+		mapping := root.Content[0]
+		// In a mapping node, keys are at even indices (0, 2, 4, ...)
+		for i := 0; i < len(mapping.Content); i += 2 {
+			if mapping.Content[i].Kind == yaml.ScalarNode {
+				tableName := mapping.Content[i].Value
+				tableOrder = append(tableOrder, tableName)
+			}
+		}
 	}
 
 	// Note: YAML parsing strips quotes from values, so we need to be careful
@@ -57,7 +79,7 @@ func loadYAML(path string) (map[string][]map[string]interface{}, error) {
 	// The Eval function will handle this by checking for specific function names
 	// and pipe characters.
 
-	return out, nil
+	return out, tableOrder, nil
 }
 
 func insertTable(db *sql.DB, table string, rows []map[string]interface{}, dryRun bool) error {
@@ -122,6 +144,8 @@ func main() {
 	// Parse command line flags
 	path := flag.String("file", "seed.yaml", "Path to YAML seed file")
 	dryRun := flag.Bool("dry-run", false, "Print SQL statements without executing them")
+	orderStr := flag.String("order", "", "Comma-separated list of table names to specify insertion order")
+	respectYamlOrder := flag.Bool("respect-yaml-order", true, "Process tables in the order they appear in the YAML file")
 	flag.Parse()
 
 	// Only require DATABASE_URL if not in dry run mode
@@ -142,11 +166,38 @@ func main() {
 		defer db.Close()
 	}
 
-	seedData, err := loadYAML(*path)
+	seedData, tableOrder, err := loadYAML(*path)
 	if err != nil {
 		panic(err)
 	}
 
+	// Process tables in specified order if provided via command line
+	if *orderStr != "" {
+		// Command line order takes precedence
+		tableOrder = strings.Split(*orderStr, ",")
+		for i, table := range tableOrder {
+			tableOrder[i] = strings.TrimSpace(table)
+		}
+		*respectYamlOrder = false // Override YAML order when explicit order is provided
+	}
+
+	// Process tables in the specified order
+	if len(tableOrder) > 0 && (*respectYamlOrder || *orderStr != "") {
+		for _, table := range tableOrder {
+			if rows, ok := seedData[table]; ok {
+				fmt.Printf("Processing table: %s (%d rows)\n", table, len(rows))
+				if err := insertTable(db, table, rows, *dryRun); err != nil {
+					panic(err)
+				}
+				// Remove the table from the map to avoid processing it again
+				delete(seedData, table)
+			} else {
+				fmt.Printf("Warning: Table '%s' in order but not found in YAML data\n", table)
+			}
+		}
+	}
+
+	// Process any remaining tables not specified in the order
 	for table, rows := range seedData {
 		fmt.Printf("Processing table: %s (%d rows)\n", table, len(rows))
 		if err := insertTable(db, table, rows, *dryRun); err != nil {
