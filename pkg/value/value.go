@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,63 @@ import (
 
 // QuotePattern matches single or double quoted strings
 var quotePattern = regexp.MustCompile(`^(['"])(.*)(['"])$`)
+
+// FunctionHandler defines the signature for custom functions
+type FunctionHandler func(args []string) (interface{}, error)
+
+// functionRegistry stores registered functions
+var functionRegistry = map[string]FunctionHandler{}
+var registryMutex sync.RWMutex
+
+// RegisterFunction registers a custom function with the given name
+func RegisterFunction(name string, handler FunctionHandler) {
+	registryMutex.Lock()
+	defer registryMutex.Unlock()
+	functionRegistry[name] = handler
+}
+
+// UnregisterFunction removes a function from the registry
+func UnregisterFunction(name string) {
+	registryMutex.Lock()
+	defer registryMutex.Unlock()
+	delete(functionRegistry, name)
+}
+
+// GetFunction retrieves a function from the registry
+func GetFunction(name string) (FunctionHandler, bool) {
+	registryMutex.RLock()
+	defer registryMutex.RUnlock()
+	handler, exists := functionRegistry[name]
+	return handler, exists
+}
+
+// init registers the default functions
+func init() {
+	// Register the hash function
+	RegisterFunction("hash", func(args []string) (interface{}, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("hash function requires exactly one argument, got %d", len(args))
+		}
+		h := sha256.Sum256([]byte(args[0]))
+		return hex.EncodeToString(h[:]), nil
+	})
+
+	// Register the now function
+	RegisterFunction("now", func(args []string) (interface{}, error) {
+		if len(args) != 0 {
+			return nil, fmt.Errorf("now function requires no arguments, got %d", len(args))
+		}
+		return time.Now().UTC().Format(time.RFC3339), nil
+	})
+
+	// Register the uuid function
+	RegisterFunction("uuid", func(args []string) (interface{}, error) {
+		if len(args) != 0 {
+			return nil, fmt.Errorf("uuid function requires no arguments, got %d", len(args))
+		}
+		return uuid.New().String(), nil
+	})
+}
 
 // Eval evaluates a string value according to the specified rules:
 // 1. Literal values are quoted using single or double quotes
@@ -54,29 +112,17 @@ func Eval(value string) (interface{}, error) {
 			args = append(args, resultStr)
 		}
 
-		// Process the function call
-		switch fn {
-		case "hash":
-			if len(args) != 1 {
-				return nil, fmt.Errorf("hash function requires exactly one argument, got %d", len(args))
-			}
-			h := sha256.Sum256([]byte(args[0]))
-			result = hex.EncodeToString(h[:])
-
-		case "now":
-			if len(args) != 0 {
-				return nil, fmt.Errorf("now function requires no arguments, got %d", len(args))
-			}
-			result = time.Now().UTC().Format(time.RFC3339)
-
-		case "uuid":
-			if len(args) != 0 {
-				return nil, fmt.Errorf("uuid function requires no arguments, got %d", len(args))
-			}
-			result = uuid.New().String()
-
-		default:
+		// Look up the function in the registry
+		handler, exists := GetFunction(fn)
+		if !exists {
 			return nil, fmt.Errorf("unsupported function: %s", fn)
+		}
+
+		// Call the function handler
+		var err error
+		result, err = handler(args)
+		if err != nil {
+			return nil, fmt.Errorf("function %s error: %w", fn, err)
 		}
 	}
 

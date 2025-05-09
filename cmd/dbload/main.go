@@ -7,11 +7,40 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/tendant/dbload/pkg/value"
 	"gopkg.in/yaml.v3"
 )
+
+// registerCustomFunctions registers additional custom functions
+func registerCustomFunctions() {
+	// Register a custom function to generate a date in the future
+	value.RegisterFunction("future", func(args []string) (interface{}, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("future function requires exactly one argument (days)")
+		}
+
+		// Parse the number of days
+		var days int
+		if _, err := fmt.Sscanf(args[0], "%d", &days); err != nil {
+			return nil, fmt.Errorf("future function requires a number: %w", err)
+		}
+
+		// Calculate the future date
+		futureDate := time.Now().UTC().AddDate(0, 0, days)
+		return futureDate.Format(time.RFC3339), nil
+	})
+
+	// Register a custom function to convert text to uppercase
+	value.RegisterFunction("upper", func(args []string) (interface{}, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("upper function requires exactly one argument")
+		}
+		return strings.ToUpper(args[0]), nil
+	})
+}
 
 func loadYAML(path string) (map[string][]map[string]interface{}, error) {
 	data, err := os.ReadFile(path)
@@ -63,6 +92,9 @@ func insertTable(db *sql.DB, table string, rows []map[string]interface{}) error 
 }
 
 func main() {
+	// Register custom functions
+	registerCustomFunctions()
+
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		fmt.Fprintln(os.Stderr, "DATABASE_URL is required")

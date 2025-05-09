@@ -1,10 +1,52 @@
 package value
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
 )
+
+func TestCustomFunctions(t *testing.T) {
+	// Register a custom function for testing
+	RegisterFunction("double", func(args []string) (interface{}, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("double function requires exactly one argument")
+		}
+		return args[0] + args[0], nil
+	})
+	// Make sure to clean up after the test
+	defer UnregisterFunction("double")
+
+	// Test the custom function
+	result, err := Eval("double test")
+	if err != nil {
+		t.Errorf("Eval() error = %v", err)
+		return
+	}
+	expected := "testtest"
+	if result != expected {
+		t.Errorf("Eval() = %v, want %v", result, expected)
+	}
+
+	// Test the custom function in a pipe
+	result, err = Eval(`"value"|double`)
+	if err != nil {
+		t.Errorf("Eval() error = %v", err)
+		return
+	}
+	expected = "valuevalue"
+	if result != expected {
+		t.Errorf("Eval() = %v, want %v", result, expected)
+	}
+
+	// Test unregistering a function
+	UnregisterFunction("double")
+	_, err = Eval("double test")
+	if err == nil {
+		t.Errorf("Expected error after unregistering function, got nil")
+	}
+}
 
 func TestEval(t *testing.T) {
 	tests := []struct {
