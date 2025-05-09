@@ -98,12 +98,27 @@ func init() {
 		return time.Now().UTC().Format(time.RFC3339), nil
 	})
 
-	// Register the uuid function
+	// Register the uuid function with optional seed support
 	RegisterFunction("uuid", func(args []string) (interface{}, error) {
-		if len(args) != 0 {
-			return nil, fmt.Errorf("uuid function requires no arguments, got %d", len(args))
+		// Check if we have 0 or 1 arguments (optional seed)
+		if len(args) > 1 {
+			return nil, fmt.Errorf("uuid function requires 0 or 1 arguments (optional seed), got %d", len(args))
 		}
-		return uuid.New().String(), nil
+
+		// If no seed is provided, generate a random UUID
+		if len(args) == 0 {
+			return uuid.New().String(), nil
+		}
+
+		// If a seed is provided, generate a deterministic UUID based on the seed
+		// This allows referencing the same UUID across different tables
+		seed := args[0]
+
+		// Create a UUID v5 with the DNS namespace and the seed
+		// This will generate a consistent UUID for the same seed
+		deterministicUUID := uuid.NewSHA1(uuid.NameSpaceDNS, []byte(seed))
+
+		return deterministicUUID.String(), nil
 	})
 }
 

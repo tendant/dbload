@@ -170,6 +170,36 @@ func TestEval(t *testing.T) {
 			},
 		},
 		{
+			name:    "UUID function with seed",
+			input:   "uuid(test-seed)",
+			wantErr: false,
+			validate: func(t *testing.T, result interface{}) {
+				str, ok := result.(string)
+				if !ok {
+					t.Errorf("Expected string result, got %T", result)
+					return
+				}
+
+				// UUID format validation
+				uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+				if !uuidPattern.MatchString(str) {
+					t.Errorf("Result is not a valid UUID: %s", str)
+				}
+
+				// Run the function again with the same seed to verify consistency
+				result2, err := Eval("uuid(test-seed)")
+				if err != nil {
+					t.Errorf("Second Eval() error = %v", err)
+					return
+				}
+
+				// Verify that the UUIDs are the same
+				if result != result2 {
+					t.Errorf("UUID with same seed produced different results: %v vs %v", result, result2)
+				}
+			},
+		},
+		{
 			name:    "Now function without arguments",
 			input:   "now()",
 			wantErr: false,
@@ -265,8 +295,8 @@ func TestEval(t *testing.T) {
 			},
 		},
 		{
-			name:    "UUID with arguments",
-			input:   "uuid(arg)",
+			name:    "UUID with too many arguments",
+			input:   "uuid(arg1, arg2)",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case
@@ -281,11 +311,33 @@ func TestEval(t *testing.T) {
 			},
 		},
 		{
-			name:    "Hash to UUID pipe (UUID gets argument)",
+			name:    "Hash to UUID pipe (UUID uses hash result as seed)",
 			input:   "hash(test)|uuid()",
-			wantErr: true,
+			wantErr: false,
 			validate: func(t *testing.T, result interface{}) {
-				// No validation needed for error case
+				str, ok := result.(string)
+				if !ok {
+					t.Errorf("Expected string result, got %T", result)
+					return
+				}
+
+				// UUID format validation
+				uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+				if !uuidPattern.MatchString(str) {
+					t.Errorf("Result is not a valid UUID: %s", str)
+				}
+
+				// Verify that the UUID is deterministic based on the hash
+				hashResult := "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" // SHA-256 hash of "test"
+				expectedUUID, err := Eval("uuid(" + hashResult + ")")
+				if err != nil {
+					t.Errorf("Failed to generate expected UUID: %v", err)
+					return
+				}
+
+				if str != expectedUUID {
+					t.Errorf("UUID from pipe doesn't match expected UUID: %v vs %v", str, expectedUUID)
+				}
 			},
 		},
 		{

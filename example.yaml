@@ -14,13 +14,26 @@ users:
     # Using a literal value (quoted)
     status: 'active'
 
+# Example of a related table referencing products
+inventory:
+  - product_id: 101  # References product by ID
+    warehouse: "Main Warehouse"
+    quantity: 50
+    last_updated: "now()"
+
+  # Example of using UUID with seed for referencing
+  - product_sku: "uuid(product-101)"  # Same UUID as the product's SKU
+    warehouse: "Secondary Warehouse"
+    quantity: 25
+    last_updated: "now()"
+
 products:
   - id: 101
     name: "Laptop"
     # Using the custom upper function with a pipe and a literal value
     category: "electronics|upper()"
-    # Using the built-in uuid function
-    sku: "uuid()"
+    # Using the built-in uuid function with a seed for consistent IDs
+    sku: "uuid(product-101)"
     # Using a pipe to chain custom functions with a literal value
     description: "premium laptop|upper()"
     price: 999.99

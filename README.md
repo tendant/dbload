@@ -76,8 +76,10 @@ Functions are explicitly identified by parentheses, making it clear what is a fu
 - `now`: Generates the current timestamp in RFC3339 format
   - Example: `now()`
   
-- `uuid`: Generates a random UUID
-  - Example: `uuid()`
+- `uuid`: Generates a UUID
+  - Example: `uuid()` (random UUID) or `uuid(seed)` (deterministic UUID based on seed)
+  - When a seed is provided, the same seed will always generate the same UUID
+  - This is useful for referencing the same entity across different tables
 
 ### Custom Functions
 
@@ -124,6 +126,69 @@ func init() {
 
 See the `example.yaml` file for examples of using both built-in and custom functions.
 
+## Referencing Data Between Tables
+
+When loading data into multiple tables with relationships, you often need to reference data from one table in another. Here are some approaches to handle this:
+
+### Using Fixed IDs
+
+The simplest approach is to use fixed IDs in your YAML file, ensuring that the referenced IDs exist in the related tables:
+
+```yaml
+# Define users with known IDs
+users:
+  - id: 1
+    name: "John Doe"
+    email: "john@example.com"
+
+# Reference user ID in orders
+orders:
+  - id: 101
+    user_id: 1  # References user with ID 1
+    product: "Laptop"
+    quantity: 2
+```
+
+### Using UUID Function with Seeds
+
+For more dynamic references, you can use the UUID function with a fixed seed to generate consistent IDs across tables:
+
+```yaml
+# First table with UUID-based ID
+products:
+  - id: "uuid(product-1)"  # This generates a consistent UUID based on "product-1"
+    name: "Laptop"
+    price: 999.99
+
+# Reference the product in another table
+order_items:
+  - order_id: 1
+    product_id: "uuid(product-1)"  # Same UUID as above
+    quantity: 2
+```
+
+The UUID function with a seed will always generate the same UUID for the same seed value, making it perfect for maintaining referential integrity across tables without having to use sequential IDs.
+
+### Proposed Enhancement: Reference Function
+
+A more robust solution would be to add a `ref` function that can look up values from previously inserted rows:
+
+```yaml
+# First table
+users:
+  - id: 1
+    name: "John Doe"
+    email: "john@example.com"
+
+# Reference data from the users table
+orders:
+  - id: 101
+    user_id: "ref(users, 1, id)"  # References id column from users table where id=1
+    user_email: "ref(users, 1, email)"  # References email column
+```
+
+This enhancement would require tracking inserted rows and their values during the insertion process.
+
 ## Testing with Sample Database
 
 To test the tool with the provided example.yaml file, you can create the following sample database tables:
@@ -151,6 +216,16 @@ CREATE TABLE products (
     price DECIMAL(10, 2),
     created_at TIMESTAMP
 );
+
+-- Create inventory table (demonstrates relationships)
+CREATE TABLE inventory (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id),
+    product_sku VARCHAR(100) REFERENCES products(sku),
+    warehouse VARCHAR(100) NOT NULL,
+    quantity INTEGER NOT NULL,
+    last_updated TIMESTAMP
+);
 ```
 
 You can execute these SQL statements in your PostgreSQL database before running the tool. Then use the following commands to test:
@@ -174,6 +249,11 @@ SELECT * FROM users;
 
 -- Check products table
 SELECT * FROM products;
+
+-- Check inventory table and its relationships
+SELECT i.*, p.name AS product_name
+FROM inventory i
+LEFT JOIN products p ON i.product_id = p.id OR i.product_sku = p.sku;
 ```
 
 ## License
