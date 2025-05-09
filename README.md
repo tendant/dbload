@@ -11,9 +11,17 @@ A utility for loading data into a database from YAML files with support for dyna
 
 ## Installation
 
+You can install the tool using either `go get` or `go install`:
+
 ```bash
+# Using go get (for adding to your project)
 go get github.com/tendant/dbload
+
+# Using go install (for installing the command-line tool)
+go install github.com/tendant/dbload/cmd/dbload@latest
 ```
+
+After installation with `go install`, the `dbload` command will be available in your PATH.
 
 ## Usage
 
