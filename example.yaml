@@ -1,0 +1,27 @@
+# Example seed data with custom functions
+users:
+  - id: 1
+    name: "John Doe"
+    email: "john@example.com"
+    # Using the built-in hash function
+    password: "hash password123"
+    # Using the custom future function to set an expiry date 30 days in the future
+    expires_at: "future 30"
+    # Using the custom upper function
+    role: "upper admin"
+    # Using a pipe to chain functions
+    created_at: "now"
+    # Using a literal value (quoted)
+    status: 'active'
+
+products:
+  - id: 101
+    name: "Laptop"
+    # Using the custom upper function with a pipe and a literal value
+    category: 'electronics'|upper
+    # Using the built-in uuid function
+    sku: "uuid"
+    # Using a pipe to chain custom functions with a literal value
+    description: 'premium laptop'|upper
+    price: 999.99
+    created_at: "now"
