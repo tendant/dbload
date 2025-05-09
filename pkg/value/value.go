@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // QuotePattern matches single or double quoted strings
@@ -46,13 +48,46 @@ func GetFunction(name string) (FunctionHandler, bool) {
 
 // init registers the default functions
 func init() {
-	// Register the hash function
+	// Register the hash function (SHA-256)
 	RegisterFunction("hash", func(args []string) (interface{}, error) {
 		if len(args) != 1 {
 			return nil, fmt.Errorf("hash function requires exactly one argument, got %d", len(args))
 		}
 		h := sha256.Sum256([]byte(args[0]))
 		return hex.EncodeToString(h[:]), nil
+	})
+
+	// Register the bcrypt function for password hashing
+	RegisterFunction("bcrypt", func(args []string) (interface{}, error) {
+		// Check if we have 1 or 2 arguments (password, [cost])
+		if len(args) < 1 || len(args) > 2 {
+			return nil, fmt.Errorf("bcrypt function requires 1 or 2 arguments (password, [cost]), got %d", len(args))
+		}
+
+		// Default cost is 10
+		cost := bcrypt.DefaultCost
+
+		// If cost is provided, parse it
+		if len(args) == 2 {
+			var err error
+			cost, err = strconv.Atoi(args[1])
+			if err != nil {
+				return nil, fmt.Errorf("bcrypt cost must be a number: %w", err)
+			}
+
+			// Validate cost range
+			if cost < bcrypt.MinCost || cost > bcrypt.MaxCost {
+				return nil, fmt.Errorf("bcrypt cost must be between %d and %d", bcrypt.MinCost, bcrypt.MaxCost)
+			}
+		}
+
+		// Generate the hash
+		hash, err := bcrypt.GenerateFromPassword([]byte(args[0]), cost)
+		if err != nil {
+			return nil, fmt.Errorf("bcrypt error: %w", err)
+		}
+
+		return string(hash), nil
 	})
 
 	// Register the now function

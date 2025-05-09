@@ -3,8 +3,11 @@ package value
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestCustomFunctions(t *testing.T) {
@@ -101,6 +104,54 @@ func TestEval(t *testing.T) {
 			},
 		},
 		{
+			name:    "Bcrypt function with default cost",
+			input:   "bcrypt(password123)",
+			wantErr: false,
+			validate: func(t *testing.T, result interface{}) {
+				str, ok := result.(string)
+				if !ok {
+					t.Errorf("Expected string result, got %T", result)
+					return
+				}
+
+				// Verify it's a valid bcrypt hash
+				if len(str) < 60 || !strings.HasPrefix(str, "$2a$") {
+					t.Errorf("Result is not a valid bcrypt hash: %s", str)
+					return
+				}
+
+				// Verify the hash works for the original password
+				err := bcrypt.CompareHashAndPassword([]byte(str), []byte("password123"))
+				if err != nil {
+					t.Errorf("Bcrypt hash verification failed: %v", err)
+				}
+			},
+		},
+		{
+			name:    "Bcrypt function with custom cost",
+			input:   "bcrypt(password123, 12)",
+			wantErr: false,
+			validate: func(t *testing.T, result interface{}) {
+				str, ok := result.(string)
+				if !ok {
+					t.Errorf("Expected string result, got %T", result)
+					return
+				}
+
+				// Verify it's a valid bcrypt hash with cost 12
+				if len(str) < 60 || !strings.HasPrefix(str, "$2a$12$") {
+					t.Errorf("Result is not a valid bcrypt hash with cost 12: %s", str)
+					return
+				}
+
+				// Verify the hash works for the original password
+				err := bcrypt.CompareHashAndPassword([]byte(str), []byte("password123"))
+				if err != nil {
+					t.Errorf("Bcrypt hash verification failed: %v", err)
+				}
+			},
+		},
+		{
 			name:    "UUID function without arguments",
 			input:   "uuid()",
 			wantErr: false,
@@ -192,6 +243,22 @@ func TestEval(t *testing.T) {
 		{
 			name:    "Hash with too many arguments",
 			input:   "hash(arg1, arg2)",
+			wantErr: true,
+			validate: func(t *testing.T, result interface{}) {
+				// No validation needed for error case
+			},
+		},
+		{
+			name:    "Bcrypt with too many arguments",
+			input:   "bcrypt(arg1, 10, extra)",
+			wantErr: true,
+			validate: func(t *testing.T, result interface{}) {
+				// No validation needed for error case
+			},
+		},
+		{
+			name:    "Bcrypt with invalid cost",
+			input:   "bcrypt(password, invalid)",
 			wantErr: true,
 			validate: func(t *testing.T, result interface{}) {
 				// No validation needed for error case

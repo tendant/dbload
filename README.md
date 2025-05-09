@@ -60,6 +60,11 @@ Functions are explicitly identified by parentheses, making it clear what is a fu
 - `hash`: Generates a SHA-256 hash of the input
   - Example: `hash(password123)`
   
+- `bcrypt`: Generates a secure bcrypt hash for password storage
+  - Example: `bcrypt(password123)` or `bcrypt(password123, 12)` (with custom cost)
+  - The second argument is optional and specifies the cost factor (default is 10)
+  - Recommended for password storage as it's more secure than SHA-256
+  
 - `now`: Generates the current timestamp in RFC3339 format
   - Example: `now()`
   

@@ -3,8 +3,8 @@ users:
   - id: 1
     name: "John Doe"
     email: "john@example.com"
-    # Using the built-in hash function
-    password: "hash(password123)"
+    # Using the bcrypt function for secure password hashing
+    password: "bcrypt(password123)"
     # Using the custom future function to set an expiry date 30 days in the future
     expires_at: "future(30)"
     # Using the custom upper function
