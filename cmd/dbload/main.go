@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	_ "github.com/lib/pq"
+	"github.com/tendant/dbload/pkg/value"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,23 +33,12 @@ func insertTable(db *sql.DB, table string, rows []map[string]interface{}) error 
 		idx := 1
 		for k, v := range row {
 			if valStr, ok := v.(string); ok {
-				// Try function call (must end with ())
-				if strings.HasSuffix(valStr, ")") {
-					result, isFunc, err := value.applyFunctionCall(valStr)
-					if err != nil {
-						return fmt.Errorf("function call error in %s: %w", k, err)
-					}
-					if isFunc {
-						v = result
-					}
-				} else if strings.Contains(valStr, "|") {
-					// Apply pipe functions if present
-					result, err := value.applyPipes(valStr)
-					if err != nil {
-						return fmt.Errorf("pipe error in %s: %w", k, err)
-					}
-					v = result
+				// Use the new Eval function to handle both function calls and pipes
+				result, err := value.Eval(valStr)
+				if err != nil {
+					return fmt.Errorf("value evaluation error in %s: %w", k, err)
 				}
+				v = result
 			}
 
 			columns = append(columns, k)
