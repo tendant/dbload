@@ -20,7 +20,7 @@ build-static:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME) ./$(CMD_PATH)
 
 # Updated buildx-based Docker image build
-docker-build:
+docker-push:
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
 		--push \
